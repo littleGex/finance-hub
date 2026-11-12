@@ -51,3 +51,9 @@ def add_item(conn, name, amount, from_account_id, frequency="monthly", due_day=1
                                  to_account_id, to_pot_id, active) VALUES (?,?,?,?,?,?,?,?,?)""",
         (name, amount, from_account_id, frequency, due_day, start_month, to_account_id, to_pot_id, active),
     ).lastrowid
+
+
+def make_account(c, name, bank):
+    r = c.post("/api/accounts", json={"name": name, "bank": bank})
+    assert r.status_code == 201
+    return r.json()["id"]

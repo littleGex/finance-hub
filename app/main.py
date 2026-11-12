@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gamify, payslip, transfers
+from . import config, db, gamify, payslip, routes_plan, transfers
 from .importers import csv_banks
 from .importers.base import decode_bytes, dedup_keys
 
@@ -195,4 +195,5 @@ def get_summary():
         return gamify.summary(conn)
 
 
+app.include_router(routes_plan.router)
 app.mount("/", StaticFiles(directory=WEB_DIR, html=True), name="web")

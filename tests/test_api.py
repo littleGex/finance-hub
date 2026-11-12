@@ -3,13 +3,7 @@ from pathlib import Path
 
 import pytest
 
-SAMPLES = Path(__file__).resolve().parent.parent / "sample_data"
-
-
-def make_account(c, name, bank):
-    r = c.post("/api/accounts", json={"name": name, "bank": bank})
-    assert r.status_code == 201
-    return r.json()["id"]
+from tests.conftest import SAMPLES, make_account
 
 
 def test_import_is_idempotent(client):
