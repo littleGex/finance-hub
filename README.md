@@ -22,7 +22,11 @@ uvicorn app.main:app --port 8092 --reload
 Open http://localhost:8092, add an account, then try the files in `sample_data/`.
 Add to Home Screen on iPhone for the app-like experience.
 
-Docker (Pi): `docker compose up -d --build`. Set `NAS_PAYSLIP_PATH` in `.env` to the mounted NAS share.
+Docker (Pi): `docker compose up -d --build`, then open `http://<pi>:8094`. In `.env` set:
+
+- `HOST_PORT` (default 8094; 8092 is taken on the Pi by steuer-hub; check free ports with `ss -tln`)
+- `ALLOWED_HOSTS` to the names/IPs you open the app with, e.g. `ford-home-pi.local,192.168.2.52`
+- `NAS_PAYSLIP_PATH` to the mounted NAS payslip folder and `PAYSLIP_LAYOUT=month` to file into the existing `Jan/ … Dec/` folders
 
 ## Test
 
@@ -32,7 +36,7 @@ pytest
 
 ## Important notes
 
-- **No login.** Keep it on your home network only. Do not expose port 8092 to the internet. If you want access away from home, put it behind a VPN (e.g. WireGuard/Tailscale).
+- **No login.** Keep it on your home network only. Do not expose it to the internet, and do not add it to nginx-proxy-manager or the cloudflared tunnel. Requests with an unknown Host or a foreign Origin are rejected. If you want access away from home, put it behind a VPN (e.g. WireGuard/Tailscale).
 - **Check the CSV parsers against real exports.** `app/importers/csv_banks.py` follows the typical layouts; banks change formats. Adjust column names there if an import is rejected.
 - **Payslip parsing is best effort** (`app/payslip.py`). Layouts vary by employer; send a sample (redacted) to tune the patterns.
 - Internal transfers between your own accounts are not detected yet, so they count as income/spend in the rings.

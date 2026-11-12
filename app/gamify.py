@@ -103,7 +103,8 @@ def summary(conn, today: date | None = None) -> dict:
                   "label": "Data fresh", "detail": f"{fresh} of {n_acc} accounts updated this week"},
     }
 
-    n_imports = conn.execute("SELECT COUNT(*) c FROM imports").fetchone()["c"]
+    # Only imports that brought in new transactions earn XP; re-uploading a file is not progress.
+    n_imports = conn.execute("SELECT COUNT(*) c FROM imports WHERE rows_new > 0").fetchone()["c"]
     n_payslips = conn.execute("SELECT COUNT(*) c FROM payslips").fetchone()["c"]
     saving_months = sum(1 for k, v in cashflow.items() if k != cur and v["income"] > v["spend"])
     xp = n_imports * XP_PER_IMPORT + n_payslips * XP_PER_PAYSLIP + saving_months * XP_PER_SAVING_MONTH

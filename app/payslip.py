@@ -61,15 +61,39 @@ def _find_amount(text: str, labels: tuple[str, ...]) -> float | None:
     return None
 
 
+MONTH_NAME_RE = re.compile(
+    r"\b(januar|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)\s+(20\d{2})\b")
+# "03/2026" or "03.2026", but not the tail of a full date like "01.04.2019".
+MONTH_NUM_RE = re.compile(r"(?<![\d./])(0[1-9]|1[0-2])[./](20\d{2})\b")
+# After a period label, a full date (start of a range) also counts.
+LABELLED_NUM_RE = re.compile(r"(?<![\d./])(?:\d{1,2}[./])?(0[1-9]|1[0-2])[./](20\d{2})\b")
+PERIOD_LABELS = (
+    "abrechnungsmonat", "abrechnungszeitraum", "abrechnungsperiode", "abrechnung für", "abrechnung fuer",
+    "entgeltabrechnung", "gehaltsabrechnung", "lohnabrechnung", "verdienstabrechnung", "zeitraum", "pay period",
+)
+
+
+def _period_from(m: re.Match) -> str:
+    month, year = m.group(1), m.group(2)
+    return f"{year}-{MONTHS_DE[month]:02d}" if month in MONTHS_DE else f"{year}-{month}"
+
+
 def _find_period(text: str) -> str | None:
+    """Payslips also carry entry dates, birth dates and print dates, so:
+    1. a month right after a period label wins;
+    2. otherwise use the month only if every unlabelled candidate agrees;
+    3. if they disagree, return None so the payslip is flagged for review."""
     low = text.lower()
-    m = re.search(r"(januar|februar|märz|maerz|april|mai|juni|juli|august|september|oktober|november|dezember)\s+(20\d{2})", low)
-    if m:
-        return f"{m.group(2)}-{MONTHS_DE[m.group(1)]:02d}"
-    m = re.search(r"\b(0[1-9]|1[0-2])[./](20\d{2})\b", text)
-    if m:
-        return f"{m.group(2)}-{m.group(1)}"
-    return None
+    for label in PERIOD_LABELS:
+        for lm in re.finditer(re.escape(label), low):
+            tail = low[lm.end(): lm.end() + 40]
+            hits = [m for m in (MONTH_NAME_RE.search(tail), LABELLED_NUM_RE.search(tail)) if m]
+            if hits:
+                return _period_from(min(hits, key=lambda m: m.start()))
+
+    candidates = {_period_from(m) for m in MONTH_NAME_RE.finditer(low)}
+    candidates |= {_period_from(m) for m in MONTH_NUM_RE.finditer(low)}
+    return candidates.pop() if len(candidates) == 1 else None
 
 
 def parse(pdf_bytes: bytes) -> PayslipData:
@@ -85,12 +109,22 @@ def sha256(pdf_bytes: bytes) -> str:
     return hashlib.sha256(pdf_bytes).hexdigest()
 
 
+MONTH_FOLDERS = ("Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sept", "Oct", "Nov", "Dec")
+
+
+def _target_folder_and_stem(data: PayslipData, original_name: str) -> tuple[str, str]:
+    if not data.period:
+        return "unsorted", re.sub(r"[^\w.-]", "_", original_name.rsplit(".", 1)[0])
+    if config.PAYSLIP_LAYOUT == "month":
+        return MONTH_FOLDERS[int(data.period[5:7]) - 1], f"Entgeltabrechnung_{data.period}"
+    return data.period[:4], f"payslip_{data.period}"
+
+
 def file_payslip(pdf_bytes: bytes, data: PayslipData, original_name: str):
-    """Write the PDF into PAYSLIP_DIR/<year>/ and return its path."""
-    year = data.period[:4] if data.period else "unsorted"
-    folder = config.PAYSLIP_DIR / year
+    """Write the PDF into PAYSLIP_DIR (layout per PAYSLIP_LAYOUT) and return its path."""
+    sub, stem = _target_folder_and_stem(data, original_name)
+    folder = config.PAYSLIP_DIR / sub
     folder.mkdir(parents=True, exist_ok=True)
-    stem = f"payslip_{data.period}" if data.period else re.sub(r"[^\w.-]", "_", original_name.rsplit(".", 1)[0])
     target = folder / f"{stem}.pdf"
     n = 1
     while target.exists():

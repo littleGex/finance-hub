@@ -3,8 +3,12 @@ services:
     build: .
     container_name: finance-hub
     restart: unless-stopped
+    # Run as the uid/gid the NAS share is mounted as (the Pi's fstab uses uid=1000,gid=1000).
+    user: "${PUID:-1000}:${PGID:-1000}"
     ports:
-      - "8092:8092"
+      # Host port 8092 is taken on the Pi (steuer-hub); 8094 is free. Check with `ss -tln`.
+      # LAN only: never route this through nginx-proxy-manager or the cloudflared tunnel (no login).
+      - "${BIND_ADDR:-0.0.0.0}:${HOST_PORT:-8094}:8092"
     env_file: .env
     environment:
       FINANCE_HUB_DB: /data/finance.db
@@ -12,5 +16,10 @@ services:
       PAYSLIP_DIR: /payslips
     volumes:
       - ./data:/data
-      # Point the left side at your mounted mycloud NAS share for payslips.
+      # Host path of the NAS payslip folder, e.g. /mnt/nas/alan/Payslips on the Pi.
       - ${NAS_PAYSLIP_PATH:-./data/payslips}:/payslips
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8092/api/health', timeout=3)"]
+      interval: 60s
+      timeout: 5s
+      retries: 3

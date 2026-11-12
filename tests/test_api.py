@@ -12,6 +12,7 @@ def client(tmp_path, monkeypatch):
     monkeypatch.setenv("FINANCE_HUB_DB", str(tmp_path / "t.db"))
     monkeypatch.setenv("PAYSLIP_DIR", str(tmp_path / "payslips"))
     monkeypatch.setenv("IMPORT_ARCHIVE_DIR", str(tmp_path / "imports"))
+    monkeypatch.setenv("ALLOWED_HOSTS", "testserver")
     import importlib
     from app import config, db, main
     importlib.reload(config)
@@ -78,3 +79,41 @@ def test_payslip_rejects_non_pdf_and_files_pdf(client, tmp_path):
     assert body["needs_review"] is True          # blank page: nothing readable
     assert Path(body["stored_path"]).exists()
     assert client.post("/api/payslips", files={"file": ("lohn.pdf", buf.getvalue())}).status_code == 409
+
+
+def test_reimporting_same_file_earns_no_xp(client):
+    acc = make_account(client, "Sparkasse Giro", "sparkasse")
+    data = (SAMPLES / "sparkasse_sample.csv").read_bytes()
+    client.post(f"/api/import/{acc}", files={"file": ("s.csv", data)})
+    xp_after_first = client.get("/api/summary").json()["game"]["xp"]
+    for _ in range(5):
+        client.post(f"/api/import/{acc}", files={"file": ("s.csv", data)})
+    assert client.get("/api/summary").json()["game"]["xp"] == xp_after_first
+
+
+def test_same_filename_different_content_both_archived(client, tmp_path):
+    acc = make_account(client, "Sparkasse Giro", "sparkasse")
+    data = (SAMPLES / "sparkasse_sample.csv").read_bytes()
+    lines = data.splitlines(keepends=True)
+    client.post(f"/api/import/{acc}", files={"file": ("Umsaetze.csv", data)})
+    client.post(f"/api/import/{acc}", files={"file": ("Umsaetze.csv", b"".join(lines[:-1]))})
+    archived = sorted((tmp_path / "imports").iterdir())
+    assert len(archived) == 2
+    assert all(p.name.endswith("Umsaetze.csv") for p in archived)
+
+
+def test_unknown_host_rejected(client):
+    r = client.get("/api/summary", headers={"host": "evil.example"})
+    assert r.status_code == 400
+
+
+def test_cross_origin_post_rejected(client):
+    r = client.post("/api/accounts", json={"name": "x"}, headers={"origin": "http://evil.example"})
+    assert r.status_code == 403
+    r = client.post("/api/accounts", json={"name": "x"}, headers={"origin": "null"})
+    assert r.status_code == 403
+
+
+def test_same_origin_post_allowed(client):
+    r = client.post("/api/accounts", json={"name": "x"}, headers={"origin": "http://testserver"})
+    assert r.status_code == 201

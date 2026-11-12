@@ -1,12 +1,16 @@
 """finance-hub API + static front end."""
 from __future__ import annotations
 
+import hashlib
 import sqlite3
 from contextlib import asynccontextmanager
 from pathlib import Path
+from urllib.parse import urlsplit
 
-from fastapi import FastAPI, File, HTTPException, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi.responses import JSONResponse
 from fastapi.staticfiles import StaticFiles
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
 from . import config, db, gamify, payslip
@@ -24,6 +28,24 @@ async def lifespan(_: FastAPI):
 
 
 app = FastAPI(title="finance-hub", lifespan=lifespan)
+
+SAFE_METHODS = {"GET", "HEAD", "OPTIONS"}
+
+
+@app.middleware("http")
+async def same_origin_writes(request: Request, call_next):
+    """Block writes sent by other websites open in your browser (CSRF). Browsers always
+    send Origin on cross-site POSTs; scripts and curl send none and are allowed."""
+    origin = request.headers.get("origin")
+    if request.method not in SAFE_METHODS and origin is not None:
+        host = urlsplit(origin).hostname if origin != "null" else None
+        if host is None or host not in config.ALLOWED_HOSTS:
+            return JSONResponse({"detail": "Cross-origin request blocked"}, status_code=403)
+    return await call_next(request)
+
+
+# Added last so it runs first. Rejects requests for unknown hostnames (DNS rebinding).
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.ALLOWED_HOSTS)
 
 
 class AccountIn(BaseModel):
@@ -122,7 +144,10 @@ async def import_csv(account_id: int, file: UploadFile = File(...)):
 
     config.IMPORT_ARCHIVE_DIR.mkdir(parents=True, exist_ok=True)
     safe = "".join(c if c.isalnum() or c in "._-" else "_" for c in (file.filename or "upload.csv"))
-    (config.IMPORT_ARCHIVE_DIR / f"{account_id}_{safe}").write_bytes(raw)
+    # Content hash in the name: a same-named export from a later month never overwrites an
+    # earlier one, while re-uploading the identical file just rewrites the same bytes.
+    digest = hashlib.sha256(raw).hexdigest()[:12]
+    (config.IMPORT_ARCHIVE_DIR / f"{account_id}_{digest}_{safe}").write_bytes(raw)
     return {"format": importer.bank, "rows_total": len(txs), "rows_new": new,
             "rows_duplicate": len(txs) - new}
 

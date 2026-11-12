@@ -5,7 +5,7 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir -r requirements.txt
 COPY app ./app
 COPY web ./web
-RUN useradd -m hub && mkdir -p /data && chown hub /data
+RUN useradd -m -u 1000 hub && mkdir -p /data /payslips && chown hub /data /payslips
 USER hub
 ENV FINANCE_HUB_DB=/data/finance.db IMPORT_ARCHIVE_DIR=/data/imports PAYSLIP_DIR=/payslips
 EXPOSE 8092
