@@ -39,7 +39,7 @@ def monthly_cashflow(conn) -> dict[str, dict]:
     """{'YYYY-MM': {'income': x, 'spend': y}} in EUR (all accounts are EUR). Internal transfers are
     not detected in v0, so move money between your own accounts with care."""
     rows = conn.execute(
-        "SELECT booked_on, amount FROM transactions"
+        "SELECT booked_on, amount FROM transactions WHERE is_transfer = 0"
     ).fetchall()
     out: dict[str, dict] = {}
     for r in rows:

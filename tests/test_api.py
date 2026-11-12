@@ -2,24 +2,8 @@ import io
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 SAMPLES = Path(__file__).resolve().parent.parent / "sample_data"
-
-
-@pytest.fixture()
-def client(tmp_path, monkeypatch):
-    monkeypatch.setenv("FINANCE_HUB_DB", str(tmp_path / "t.db"))
-    monkeypatch.setenv("PAYSLIP_DIR", str(tmp_path / "payslips"))
-    monkeypatch.setenv("IMPORT_ARCHIVE_DIR", str(tmp_path / "imports"))
-    monkeypatch.setenv("ALLOWED_HOSTS", "testserver")
-    import importlib
-    from app import config, db, main
-    importlib.reload(config)
-    importlib.reload(db)
-    importlib.reload(main)
-    with TestClient(main.app) as c:
-        yield c
 
 
 def make_account(c, name, bank):
@@ -120,3 +104,19 @@ def test_cross_origin_post_rejected(client):
 def test_same_origin_post_allowed(client):
     r = client.post("/api/accounts", json={"name": "x"}, headers={"origin": "http://testserver"})
     assert r.status_code == 201
+
+
+def test_import_marks_transfers_to_own_iban(client):
+    from app import db, gamify
+    giro = make_account(client, "Sparkasse Giro", "sparkasse")
+    data = (SAMPLES / "sparkasse_sample.csv").read_bytes()
+    client.post(f"/api/import/{giro}", files={"file": ("s.csv", data)})
+    other = make_account(client, "Other own account", "other")
+    with db.session() as conn:
+        conn.execute("UPDATE accounts SET iban = 'DE11111111111111111111' WHERE id = ?", (other,))
+    client.post(f"/api/import/{giro}", files={"file": ("s.csv", data)})     # re-import re-runs detection
+    rows = client.get("/api/transactions?limit=50").json()
+    flagged = [t["description"] for t in rows if t["is_transfer"]]
+    assert sorted(flagged) == ["Gehalt Oktober", "Gehalt September"]
+    with db.session() as conn:
+        assert gamify.monthly_cashflow(conn)["2026-10"]["income"] == 0

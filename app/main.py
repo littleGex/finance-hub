@@ -13,7 +13,7 @@ from fastapi.staticfiles import StaticFiles
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 from pydantic import BaseModel
 
-from . import config, db, gamify, payslip
+from . import config, db, gamify, payslip, transfers
 from .importers import csv_banks
 from .importers.base import decode_bytes, dedup_keys
 
@@ -129,11 +129,13 @@ async def import_csv(account_id: int, file: UploadFile = File(...)):
         for t, k in zip(txs, keys):
             cur = conn.execute(
                 """INSERT OR IGNORE INTO transactions
-                   (account_id, booked_on, amount, counterparty, description, dedup_key)
-                   VALUES (?,?,?,?,?,?)""",
-                (account_id, t.booked_on.isoformat(), t.amount, t.counterparty, t.description, k),
+                   (account_id, booked_on, amount, counterparty, description, dedup_key, counterparty_iban)
+                   VALUES (?,?,?,?,?,?,?)""",
+                (account_id, t.booked_on.isoformat(), t.amount, t.counterparty, t.description, k,
+                 t.counterparty_iban or None),
             )
             new += cur.rowcount
+        transfers.mark_transfers(conn)
         conn.execute(
             "INSERT INTO imports(account_id, filename, rows_total, rows_new) VALUES (?,?,?,?)",
             (account_id, file.filename or "upload.csv", len(txs), new),

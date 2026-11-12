@@ -18,6 +18,7 @@ class ParsedTransaction:
     amount: float
     counterparty: str = ""
     description: str = ""
+    counterparty_iban: str = ""   # normalised IBAN of the other side, "" if unknown
 
 
 class Importer(Protocol):

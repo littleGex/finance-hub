@@ -42,3 +42,14 @@ def test_identical_rows_in_one_file_get_distinct_keys():
     keys = dedup_keys(1, txs)
     assert len(set(keys)) == len(keys)  # the two identical 102,30 shops stay separate
     assert keys == dedup_keys(1, txs)   # and keys are stable across runs
+
+
+def test_sparkasse_reads_counterparty_iban():
+    txs = csv_banks.SparkasseCSV().parse(read("sparkasse_sample.csv"))
+    assert txs[0].counterparty_iban == "DE11111111111111111111"     # salary row
+    assert txs[3].counterparty_iban == ""                           # card payment: Kontonummer empty
+
+
+def test_sparkasse_old_style_account_number_is_not_an_iban():
+    text = read("sparkasse_sample.csv").replace('"DE11111111111111111111"', '"1234567"', 1)
+    assert csv_banks.SparkasseCSV().parse(text)[0].counterparty_iban == ""

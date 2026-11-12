@@ -10,6 +10,7 @@ import csv
 import io
 from datetime import date, datetime
 
+from ..transfers import normalize_iban
 from .base import ParsedTransaction
 
 
@@ -66,6 +67,7 @@ class SparkasseCSV:
                 amount=_de_number(r["Betrag"]),
                 counterparty=(r.get("Beguenstigter/Zahlungspflichtiger") or "").strip(),
                 description=(r.get("Verwendungszweck") or "").strip(),
+                counterparty_iban=normalize_iban(r.get("Kontonummer")) or "",
             ))
         return out
 

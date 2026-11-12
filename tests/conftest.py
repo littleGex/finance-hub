@@ -1,6 +1,26 @@
+from pathlib import Path
+
 import pytest
+from fastapi.testclient import TestClient
 
 from app import config, db
+
+SAMPLES = Path(__file__).resolve().parent.parent / "sample_data"
+
+
+@pytest.fixture()
+def client(tmp_path, monkeypatch):
+    monkeypatch.setenv("FINANCE_HUB_DB", str(tmp_path / "t.db"))
+    monkeypatch.setenv("PAYSLIP_DIR", str(tmp_path / "payslips"))
+    monkeypatch.setenv("IMPORT_ARCHIVE_DIR", str(tmp_path / "imports"))
+    monkeypatch.setenv("ALLOWED_HOSTS", "testserver")
+    import importlib
+    from app import config, db, main
+    importlib.reload(config)
+    importlib.reload(db)
+    importlib.reload(main)
+    with TestClient(main.app) as c:
+        yield c
 
 
 @pytest.fixture()
