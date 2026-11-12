@@ -40,7 +40,39 @@ CREATE TABLE IF NOT EXISTS payslips (
     needs_review INTEGER NOT NULL DEFAULT 0,
     added_at TEXT NOT NULL DEFAULT (datetime('now'))
 );
+CREATE TABLE IF NOT EXISTS pots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    account_id INTEGER NOT NULL REFERENCES accounts(id),
+    name TEXT NOT NULL,
+    anchor_balance REAL NOT NULL DEFAULT 0,   -- balance at the END of anchor_date
+    anchor_date TEXT NOT NULL,                -- ISO date
+    UNIQUE (account_id, name)
+);
+CREATE TABLE IF NOT EXISTS recurring (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    amount REAL NOT NULL,                     -- EUR, > 0, paid out of from_account_id
+    from_account_id INTEGER NOT NULL REFERENCES accounts(id),
+    frequency TEXT NOT NULL,                  -- monthly | quarterly | yearly
+    due_day INTEGER NOT NULL,                 -- 1-31, clamped to month end
+    start_month TEXT NOT NULL,                -- YYYY-MM
+    to_account_id INTEGER REFERENCES accounts(id),   -- set => transfer, else bill
+    to_pot_id INTEGER REFERENCES pots(id),
+    active INTEGER NOT NULL DEFAULT 1
+);
 """
+
+# Columns added after the first release; applied to existing databases on startup.
+ADDED_COLUMNS = (
+    ("accounts", "iban", "TEXT"),                                   # normalised, no spaces
+    ("transactions", "counterparty_iban", "TEXT"),
+    ("transactions", "is_transfer", "INTEGER NOT NULL DEFAULT 0"),
+)
+
+
+def _add_column(conn: sqlite3.Connection, table: str, column: str, decl: str) -> None:
+    if column not in {r["name"] for r in conn.execute(f"PRAGMA table_info({table})")}:
+        conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {decl}")
 
 
 def connect() -> sqlite3.Connection:
@@ -64,3 +96,6 @@ def session():
 def init() -> None:
     with session() as conn:
         conn.executescript(SCHEMA)
+        for table, column, decl in ADDED_COLUMNS:
+            _add_column(conn, table, column, decl)
+        conn.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_accounts_iban ON accounts(iban) WHERE iban IS NOT NULL")
