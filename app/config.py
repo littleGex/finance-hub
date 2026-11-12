@@ -21,14 +21,5 @@ ALLOWED_HOSTS = sorted(
     | {h.strip() for h in os.environ.get("ALLOWED_HOSTS", "").split(",") if h.strip()}
 )
 
-BASE_CURRENCY = "EUR"
-GBP_EUR = float(os.environ.get("GBP_EUR", "1.15"))
 SAVINGS_RATE_TARGET = float(os.environ.get("SAVINGS_RATE_TARGET", "0.20"))
 MONTHLY_BUDGET_EUR = float(os.environ.get("MONTHLY_BUDGET_EUR", "3000"))
-
-
-def to_base(amount: float, currency: str) -> float:
-    """Convert to EUR using the manual rate."""
-    if currency == "GBP":
-        return amount * GBP_EUR
-    return amount

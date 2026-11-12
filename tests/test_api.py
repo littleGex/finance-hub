@@ -22,8 +22,8 @@ def client(tmp_path, monkeypatch):
         yield c
 
 
-def make_account(c, name, bank, currency="EUR"):
-    r = c.post("/api/accounts", json={"name": name, "bank": bank, "currency": currency})
+def make_account(c, name, bank):
+    r = c.post("/api/accounts", json={"name": name, "bank": bank})
     assert r.status_code == 201
     return r.json()["id"]
 
@@ -53,11 +53,14 @@ def test_set_balance_anchors_net_worth(client):
     assert s["net_worth_eur"] == 5000
 
 
-def test_gbp_account_converted_with_manual_rate(client):
-    acc = make_account(client, "BoS", "bos", "GBP")
-    client.post(f"/api/accounts/{acc}/balance", json={"balance": 1000})
+def test_net_worth_sums_accounts_in_eur(client):
+    a = make_account(client, "Sparkasse Giro", "sparkasse")
+    b = make_account(client, "BoS Tagesgeld", "bos")
+    client.post(f"/api/accounts/{a}/balance", json={"balance": 1000})
+    client.post(f"/api/accounts/{b}/balance", json={"balance": 2500.50})
     s = client.get("/api/summary").json()
-    assert s["net_worth_eur"] == pytest.approx(1000 * 1.15)
+    assert s["net_worth_eur"] == 3500.50
+    assert "fx" not in s
 
 
 def test_summary_empty_state(client):

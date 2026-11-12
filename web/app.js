@@ -11,7 +11,7 @@ let lastLevel = null;
 
 /* ---------- helpers ---------- */
 const eur = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
-const money = (n, cur) => new Intl.NumberFormat("de-DE", { style: "currency", currency: cur }).format(n);
+const money = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
 
 function el(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
@@ -124,7 +124,6 @@ async function refresh() {
   $("level-chip").textContent = `Level ${s.game.level} · ${s.game.xp} XP`;
   $("streak-chip").textContent = `🔥 ${s.streak_months}-month streak`;
   $("xpfill").style.width = `${Math.round(s.game.progress * 100)}%`;
-  $("fx").textContent = s.fx.GBP_EUR.toFixed(2);
   if (lastLevel !== null && s.game.level > lastLevel) { confetti(); toast(`Level up! You're now level ${s.game.level}`); }
   lastLevel = s.game.level;
   renderRings(s.rings);
@@ -140,7 +139,7 @@ async function refresh() {
     ps.append(el("li", {},
       el("div", { class: "main" },
         el("div", { class: "title" }, p.period || "Period not detected", p.needs_review ? el("span", { class: "badge" }, "Review") : ""),
-        el("div", { class: "sub" }, p.net != null ? `Net ${money(p.net, "EUR")}` : "Amounts not read")),
+        el("div", { class: "sub" }, p.net != null ? `Net ${money(p.net)}` : "Amounts not read")),
       el("span", { class: "sub" }, p.stored_path.split("/").slice(-2).join("/"))));
   }
 
@@ -152,7 +151,7 @@ async function refresh() {
       el("div", { class: "main" },
         el("div", { class: "title" }, t.counterparty || t.description || "Transaction"),
         el("div", { class: "sub" }, `${t.booked_on} · ${t.account}`)),
-      el("span", { class: "amt " + (t.amount >= 0 ? "pos" : "neg") }, money(t.amount, t.currency))));
+      el("span", { class: "amt " + (t.amount >= 0 ? "pos" : "neg") }, money(t.amount))));
   }
 }
 
@@ -163,7 +162,7 @@ function accountRow(a) {
       el("div", { class: "title" }, a.name),
       el("div", { class: "sub" }, `${BANK_NAMES[a.bank] || a.bank} · ${a.last_tx ? "last tx " + a.last_tx : "no data yet"}`)),
     el("div", {},
-      el("div", { class: "amt" }, money(a.balance, a.currency)),
+      el("div", { class: "amt" }, money(a.balance)),
       el("button", { class: "link", onclick: (e) => { e.stopPropagation(); setBalance(a); } }, "Set balance")),
     input);
   const upload = async (file) => {
@@ -185,7 +184,7 @@ function accountRow(a) {
 }
 
 async function setBalance(a) {
-  const v = prompt(`Current balance of ${a.name} (${a.currency})`, a.balance);
+  const v = prompt(`Current balance of ${a.name} (EUR)`, a.balance);
   if (v === null) return;
   const n = Number(v.replace(",", "."));
   if (!Number.isFinite(n)) return toast("That is not a number", true);
@@ -226,7 +225,7 @@ $("account-form").addEventListener("submit", async (e) => {
   const fd = new FormData(e.target);
   try {
     await api("/api/accounts", { method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name: fd.get("name"), bank: fd.get("bank"), currency: fd.get("currency") }) });
+      body: JSON.stringify({ name: fd.get("name"), bank: fd.get("bank") }) });
     e.target.reset();
     await refresh();
   } catch (err) { toast(err.message, true); }

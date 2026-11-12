@@ -51,7 +51,6 @@ app.add_middleware(TrustedHostMiddleware, allowed_hosts=config.ALLOWED_HOSTS)
 class AccountIn(BaseModel):
     name: str
     bank: str = "other"
-    currency: str = "EUR"
     opening_balance: float = 0.0
 
 
@@ -81,13 +80,11 @@ def list_accounts():
 
 @app.post("/api/accounts", status_code=201)
 def create_account(a: AccountIn):
-    if a.currency not in ("EUR", "GBP"):
-        raise HTTPException(400, "currency must be EUR or GBP")
     with db.session() as conn:
         try:
             cur = conn.execute(
-                "INSERT INTO accounts(name, bank, currency, opening_balance) VALUES (?,?,?,?)",
-                (a.name.strip(), a.bank, a.currency, a.opening_balance),
+                "INSERT INTO accounts(name, bank, opening_balance) VALUES (?,?,?)",
+                (a.name.strip(), a.bank, a.opening_balance),
             )
         except sqlite3.IntegrityError:
             raise HTTPException(409, "An account with that name already exists")
@@ -183,7 +180,7 @@ def list_transactions(limit: int = 50):
     limit = max(1, min(limit, 500))
     with db.session() as conn:
         rows = conn.execute(
-            """SELECT t.*, a.name AS account, a.currency FROM transactions t
+            """SELECT t.*, a.name AS account FROM transactions t
                JOIN accounts a ON a.id = t.account_id
                ORDER BY t.booked_on DESC, t.id DESC LIMIT ?""", (limit,)
         ).fetchall()

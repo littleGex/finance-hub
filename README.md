@@ -8,7 +8,7 @@ Runs on the Raspberry Pi, files payslips to the NAS, nothing leaves your network
 - Drop a CSV export on an account to import it (re-importing is safe; duplicates are skipped).
 - Drop a payslip PDF; it is read and filed to `PAYSLIP_DIR/<year>/`. Unreadable ones are flagged "Review".
 - Net worth, activity rings (savings rate, budget, data freshness), saving streak, XP and levels.
-- GBP converted to EUR with a manual rate (`GBP_EUR`).
+- Everything is EUR (Sparkasse, ING and Bank of Scotland Germany).
 
 ## Run
 

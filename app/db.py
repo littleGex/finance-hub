@@ -9,14 +9,14 @@ CREATE TABLE IF NOT EXISTS accounts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL UNIQUE,
     bank TEXT NOT NULL,              -- sparkasse | ing | bos | other
-    currency TEXT NOT NULL DEFAULT 'EUR',
+    currency TEXT NOT NULL DEFAULT 'EUR',   -- unused: everything is EUR
     opening_balance REAL NOT NULL DEFAULT 0
 );
 CREATE TABLE IF NOT EXISTS transactions (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     account_id INTEGER NOT NULL REFERENCES accounts(id),
     booked_on TEXT NOT NULL,         -- ISO date
-    amount REAL NOT NULL,            -- account currency, negative = outgoing
+    amount REAL NOT NULL,            -- EUR, negative = outgoing
     counterparty TEXT NOT NULL DEFAULT '',
     description TEXT NOT NULL DEFAULT '',
     dedup_key TEXT NOT NULL UNIQUE

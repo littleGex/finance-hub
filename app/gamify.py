@@ -36,21 +36,20 @@ def level_for(xp: int) -> dict:
 
 
 def monthly_cashflow(conn) -> dict[str, dict]:
-    """{'YYYY-MM': {'income': x, 'spend': y}} in EUR. Internal transfers are
+    """{'YYYY-MM': {'income': x, 'spend': y}} in EUR (all accounts are EUR). Internal transfers are
     not detected in v0, so move money between your own accounts with care."""
     rows = conn.execute(
-        """SELECT t.booked_on, t.amount, a.currency FROM transactions t
-           JOIN accounts a ON a.id = t.account_id"""
+        "SELECT booked_on, amount FROM transactions"
     ).fetchall()
     out: dict[str, dict] = {}
     for r in rows:
         k = r["booked_on"][:7]
         bucket = out.setdefault(k, {"income": 0.0, "spend": 0.0})
-        eur = config.to_base(r["amount"], r["currency"])
-        if eur >= 0:
-            bucket["income"] += eur
+        amount = r["amount"]
+        if amount >= 0:
+            bucket["income"] += amount
         else:
-            bucket["spend"] += -eur
+            bucket["spend"] += -amount
     return out
 
 
@@ -75,11 +74,10 @@ def summary(conn, today: date | None = None) -> dict:
             (a["id"],),
         ).fetchone()
         balance = a["opening_balance"] + total["s"]
-        eur = config.to_base(balance, a["currency"])
-        net_worth += eur
+        net_worth += balance
         accounts.append({
-            "id": a["id"], "name": a["name"], "bank": a["bank"], "currency": a["currency"],
-            "balance": round(balance, 2), "balance_eur": round(eur, 2), "last_tx": total["last"],
+            "id": a["id"], "name": a["name"], "bank": a["bank"],
+            "balance": round(balance, 2), "last_tx": total["last"],
         })
 
     cashflow = monthly_cashflow(conn)
@@ -117,5 +115,4 @@ def summary(conn, today: date | None = None) -> dict:
         "rings": rings,
         "streak_months": saving_streak(cashflow, cur),
         "game": level_for(xp),
-        "fx": {"GBP_EUR": config.GBP_EUR, "note": "manual rate"},
     }
