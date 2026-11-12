@@ -11,7 +11,7 @@ Runs on the Raspberry Pi, files payslips to the NAS, nothing leaves your network
 - Everything is EUR (Sparkasse, ING and Bank of Scotland Germany).
 - **Accounts tab:** regular payments per account (monthly, quarterly or yearly bills and transfers), and **pots** inside an account (e.g. Mine / Parents / Children). A pot's balance is the amount you last set by hand plus the planned transfers into it since then; anything not in a pot shows as *Unassigned*.
 - **This month's plan** on the overview: bills and saving due this month at their full amounts, what is still to come, and what's left of your average income. Big yearly bills show up in full in the month they're due, never spread out.
-- **Transfers between your own accounts** don't count as income or spending. Add each account's IBAN once: a transaction to one of your IBANs is a transfer, and the matching deposit on the other account (same amount, within 3 days) is paired with it. Works with Sparkasse exports today; ING/Bank of Scotland exports only if they include the counterparty IBAN.
+- **Transfers between your own accounts** don't count as income or spending. Add each account's IBAN once: a transaction to one of your IBANs is a transfer, and the matching deposit on the other account (same amount, within 3 days) is paired with it. Works with Sparkasse exports today; ING/Bank of Scotland exports only if they include the counterparty IBAN. After upgrading, re-import your existing Sparkasse CSVs once so older transactions get their IBANs too.
 
 ## Run
 
@@ -34,7 +34,8 @@ Docker (Pi): `docker compose up -d --build`, then open `http://<pi>:8094`. In `.
 ## Test
 
 ```bash
-pytest
+pytest                  # backend
+node --test tests/js/   # amount parsing in the web app
 ```
 
 ## Important notes

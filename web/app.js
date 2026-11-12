@@ -14,12 +14,7 @@ const eur = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency:
 const money = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
 const maybeMoney = (n) => (n == null ? "—" : money(n));
 
-/** "1.234,56" or "1234.56" -> 1234.56; NaN if not a number. */
-function parseAmount(v) {
-  let s = String(v).trim().replace(/\s|€/g, "");
-  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
-  return s === "" ? NaN : Number(s);
-}
+const parseAmount = window.parseAmount;   // web/parse.js
 
 function fmtDate(iso) {
   const d = new Date(iso + "T00:00:00");
