@@ -16,6 +16,7 @@
 <body>
 <canvas id="confetti" aria-hidden="true"></canvas>
 <main>
+<div id="tab-overview">
   <header class="hero">
     <p class="eyebrow">Net worth</p>
     <h1 id="networth" aria-live="polite">€0</h1>
@@ -29,6 +30,17 @@
   <section class="card rings-card" aria-label="This month">
     <svg id="rings" viewBox="0 0 200 200" role="img" aria-label="Activity rings"></svg>
     <ul id="ring-legend" class="legend"></ul>
+  </section>
+
+  <section class="card" aria-labelledby="plan-h">
+    <h2 id="plan-h">This month's plan</h2>
+    <dl id="plan" class="plan-grid"></dl>
+    <p class="hint" id="plan-hint" hidden>Import a few months of transactions to see what's left after your plan.</p>
+  </section>
+
+  <section class="card" aria-labelledby="upcoming-h">
+    <h2 id="upcoming-h">Upcoming</h2>
+    <ul id="upcoming" class="rows"></ul>
   </section>
 
   <section class="card">
@@ -46,7 +58,7 @@
       <input type="file" id="payslip-input" accept="application/pdf" hidden>
       <span class="drop-icon">📄</span>
       <span>Drop a payslip PDF</span>
-      <small>Filed to your NAS by year</small>
+      <small>Filed to your NAS</small>
     </label>
     <ul id="payslips" class="rows"></ul>
   </section>
@@ -55,8 +67,22 @@
     <h2>Recent activity</h2>
     <ul id="transactions" class="rows"></ul>
   </section>
+</div>
+
+<div id="tab-accounts" hidden>
+  <header class="page-head">
+    <h1>Accounts</h1>
+    <button class="link" id="add-account-2">Add account</button>
+  </header>
+  <div id="account-cards"></div>
+</div>
 
 </main>
+
+<nav class="tabbar" aria-label="Sections">
+  <button data-tab="overview"><span aria-hidden="true">◎</span>Overview</button>
+  <button data-tab="accounts"><span aria-hidden="true">▤</span>Accounts</button>
+</nav>
 
 <dialog id="account-dialog">
   <form method="dialog" id="account-form">
@@ -77,7 +103,46 @@
   </form>
 </dialog>
 
+<dialog id="payment-dialog">
+  <form id="payment-form" novalidate>
+    <h3 id="payment-title">New payment</h3>
+    <label>Name <input name="name" required maxlength="60" placeholder="Rent"></label>
+    <label>Amount (€) <input name="amount" required inputmode="decimal" placeholder="1.150,00"></label>
+    <div class="two">
+      <label>Every
+        <select name="frequency">
+          <option value="monthly">Month</option>
+          <option value="quarterly">Quarter</option>
+          <option value="yearly">Year</option>
+        </select>
+      </label>
+      <label>Due day <input name="due_day" type="number" min="1" max="31" inputmode="numeric" required></label>
+    </div>
+    <label>First due month <input name="start_month" type="month" required placeholder="2026-11"></label>
+    <label>Transfer to <select name="to_account_id"></select></label>
+    <label id="pot-field" hidden>Pot <select name="to_pot_id"></select></label>
+    <div class="actions">
+      <button type="button" class="link danger" id="payment-delete" hidden>Delete</button>
+      <button type="button" class="link" id="payment-pause" hidden>Pause</button>
+      <span class="spacer"></span>
+      <button type="button" class="link" id="payment-cancel">Cancel</button>
+      <button type="submit" class="primary">Save</button>
+    </div>
+  </form>
+</dialog>
+
+<dialog id="confirm-dialog">
+  <form method="dialog">
+    <p id="confirm-text"></p>
+    <div class="actions">
+      <button value="cancel" class="link">Cancel</button>
+      <button value="ok" class="primary danger-bg" id="confirm-ok">Delete</button>
+    </div>
+  </form>
+</dialog>
+
 <div id="toast" role="status" aria-live="polite"></div>
 <script src="app.js"></script>
+<script src="accounts.js"></script>
 </body>
 </html>

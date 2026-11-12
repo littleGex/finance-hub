@@ -12,6 +12,23 @@ let lastLevel = null;
 /* ---------- helpers ---------- */
 const eur = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(n);
 const money = (n) => new Intl.NumberFormat("de-DE", { style: "currency", currency: "EUR" }).format(n);
+const maybeMoney = (n) => (n == null ? "—" : money(n));
+
+/** "1.234,56" or "1234.56" -> 1234.56; NaN if not a number. */
+function parseAmount(v) {
+  let s = String(v).trim().replace(/\s|€/g, "");
+  if (s.includes(",")) s = s.replace(/\./g, "").replace(",", ".");
+  return s === "" ? NaN : Number(s);
+}
+
+function fmtDate(iso) {
+  const d = new Date(iso + "T00:00:00");
+  const opts = { day: "numeric", month: "short" };
+  if (d.getFullYear() !== new Date().getFullYear()) opts.year = "numeric";
+  return d.toLocaleDateString("en-GB", opts);
+}
+
+const jsonReq = (method, body) => ({ method, headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) });
 
 function el(tag, props = {}, ...kids) {
   const e = document.createElement(tag);
@@ -116,8 +133,8 @@ function renderRings(rings) {
 
 /* ---------- rendering ---------- */
 async function refresh() {
-  const [s, payslips, txs] = await Promise.all([
-    api("/api/summary"), api("/api/payslips"), api("/api/transactions?limit=12"),
+  const [s, payslips, txs, recurring] = await Promise.all([
+    api("/api/summary"), api("/api/payslips"), api("/api/transactions?limit=12"), api("/api/recurring"),
   ]);
 
   countUp($("networth"), s.net_worth_eur, eur);
@@ -127,6 +144,8 @@ async function refresh() {
   if (lastLevel !== null && s.game.level > lastLevel) { confetti(); toast(`Level up! You're now level ${s.game.level}`); }
   lastLevel = s.game.level;
   renderRings(s.rings);
+  renderPlan(s.plan);
+  renderUpcoming(s.upcoming);
 
   const accounts = $("accounts");
   accounts.replaceChildren();
@@ -149,10 +168,52 @@ async function refresh() {
   for (const t of txs) {
     list.append(el("li", {},
       el("div", { class: "main" },
-        el("div", { class: "title" }, t.counterparty || t.description || "Transaction"),
+        el("div", { class: "title" }, t.counterparty || t.description || "Transaction",
+          t.is_transfer ? el("span", { class: "badge transfer" }, "Transfer") : ""),
         el("div", { class: "sub" }, `${t.booked_on} · ${t.account}`)),
-      el("span", { class: "amt " + (t.amount >= 0 ? "pos" : "neg") }, money(t.amount))));
+      el("span", { class: "amt " + (t.is_transfer ? "transfer" : t.amount >= 0 ? "pos" : "neg") }, money(t.amount))));
   }
+
+  if (window.renderAccountsTab) window.renderAccountsTab(s, recurring);
+}
+
+function renderPlan(p) {
+  const rows = [
+    ["Bills this month", money(p.bills_this_month)],
+    ["Saving this month", money(p.saving_this_month)],
+    ["Still to come", money(p.still_to_come)],
+    ["Left after plan", maybeMoney(p.left_after_plan), true],
+  ];
+  $("plan").replaceChildren(...rows.flatMap(([label, value, total]) => [
+    el("dt", { class: total ? "total" : "" }, label),
+    el("dd", { class: total ? "total" + (p.left_after_plan < 0 ? " warn" : "") : "" }, value),
+  ]));
+  $("plan-hint").hidden = p.avg_income != null;
+}
+
+function renderUpcoming(items) {
+  const list = $("upcoming");
+  list.replaceChildren();
+  if (!items.length) list.append(el("li", {}, el("span", { class: "sub" }, "No regular payments yet. Add them on the Accounts tab.")));
+  for (const u of items) {
+    const target = u.kind === "transfer" ? ` · → ${u.to_account}${u.to_pot ? " · " + u.to_pot : ""}` : "";
+    list.append(el("li", {},
+      el("div", { class: "main" },
+        el("div", { class: "title" }, u.name),
+        el("div", { class: "sub" }, fmtDate(u.date) + target)),
+      el("span", { class: "amt " + (u.kind === "transfer" ? "transfer" : "") }, money(u.amount))));
+  }
+}
+
+async function importCsv(accountId, file) {
+  if (!file) return;
+  try {
+    const fd = new FormData(); fd.append("file", file);
+    const r = await api(`/api/import/${accountId}`, { method: "POST", body: fd });
+    toast(`${r.rows_new} new, ${r.rows_duplicate} already known`);
+    if (r.rows_new) confetti();
+    await refresh();
+  } catch (e) { toast(e.message, true); }
 }
 
 function accountRow(a) {
@@ -165,16 +226,7 @@ function accountRow(a) {
       el("div", { class: "amt" }, money(a.balance)),
       el("button", { class: "link", onclick: (e) => { e.stopPropagation(); setBalance(a); } }, "Set balance")),
     input);
-  const upload = async (file) => {
-    if (!file) return;
-    try {
-      const fd = new FormData(); fd.append("file", file);
-      const r = await api(`/api/import/${a.id}`, { method: "POST", body: fd });
-      toast(`${r.rows_new} new, ${r.rows_duplicate} already known`);
-      if (r.rows_new) confetti();
-      await refresh();
-    } catch (e) { toast(e.message, true); }
-  };
+  const upload = (file) => importCsv(a.id, file);
   row.addEventListener("click", () => input.click());
   row.addEventListener("keydown", (e) => { if (e.key === "Enter") input.click(); });
   input.addEventListener("click", (e) => e.stopPropagation());
@@ -186,7 +238,7 @@ function accountRow(a) {
 async function setBalance(a) {
   const v = prompt(`Current balance of ${a.name} (EUR)`, a.balance);
   if (v === null) return;
-  const n = Number(v.replace(",", "."));
+  const n = parseAmount(v);
   if (!Number.isFinite(n)) return toast("That is not a number", true);
   try {
     await api(`/api/accounts/${a.id}/balance`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ balance: n }) });
@@ -219,6 +271,25 @@ wireDrop(drop, uploadPayslip);
 $("payslip-input").addEventListener("change", (e) => uploadPayslip(e.target.files[0]));
 
 $("add-account").addEventListener("click", () => $("account-dialog").showModal());
+$("add-account-2").addEventListener("click", () => $("account-dialog").showModal());
+
+/* ---------- tabs ---------- */
+function showTab() {
+  const tab = location.hash === "#accounts" ? "accounts" : "overview";
+  $("tab-overview").hidden = tab !== "overview";
+  $("tab-accounts").hidden = tab !== "accounts";
+  for (const b of document.querySelectorAll(".tabbar button")) {
+    if (b.dataset.tab === tab) b.setAttribute("aria-current", "page"); else b.removeAttribute("aria-current");
+  }
+  scrollTo(0, 0);
+}
+for (const b of document.querySelectorAll(".tabbar button")) {
+  b.addEventListener("click", () => { location.hash = b.dataset.tab; });
+}
+addEventListener("hashchange", showTab);
+showTab();
+
+window.FH = { api, el, toast, money, parseAmount, fmtDate, jsonReq, refresh, wireDrop, importCsv, BANK_NAMES };
 $("account-form").addEventListener("submit", async (e) => {
   const submitter = e.submitter && e.submitter.value;
   if (submitter !== "ok") return;

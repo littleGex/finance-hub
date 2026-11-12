@@ -1,6 +1,6 @@
 // Caches the static shell only. Financial data (/api/*) is never cached.
-const CACHE = "finance-hub-shell-v1";
-const SHELL = ["/", "/app.css", "/app.js", "/manifest.json", "/icon.svg"];
+const CACHE = "finance-hub-shell-v2";
+const SHELL = ["/", "/app.css", "/app.js", "/accounts.js", "/manifest.json", "/icon.svg"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)));
