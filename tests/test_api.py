@@ -120,3 +120,26 @@ def test_import_marks_transfers_to_own_iban(client):
     assert sorted(flagged) == ["Gehalt Oktober", "Gehalt September"]
     with db.session() as conn:
         assert gamify.monthly_cashflow(conn)["2026-10"]["income"] == 0
+
+
+def test_summary_empty_plan(client):
+    s = client.get("/api/summary").json()
+    assert s["plan"] == {"bills_this_month": 0.0, "saving_this_month": 0.0, "still_to_come": 0.0,
+                         "avg_income": None, "left_after_plan": None}
+    assert s["upcoming"] == []
+
+
+def test_summary_shows_pots_and_unassigned(client, monkeypatch):
+    from datetime import date
+    from app import db, plan
+    monkeypatch.setattr(plan, "today", lambda: date(2026, 11, 12))
+    spar = make_account(client, "Sparkonto", "sparkasse")
+    giro = make_account(client, "Giro", "sparkasse")
+    client.post(f"/api/accounts/{spar}/balance", json={"balance": 1000})
+    with db.session() as conn:
+        conn.execute("INSERT INTO pots(account_id, name, anchor_balance, anchor_date) VALUES (?, 'Kids', 1200, '2026-11-12')", (spar,))
+    accounts = {a["name"]: a for a in client.get("/api/summary").json()["accounts"]}
+    assert accounts["Sparkonto"]["pots"] == [{"id": 1, "name": "Kids", "balance": 1200.0}]
+    assert accounts["Sparkonto"]["unassigned"] == -200.0
+    assert accounts["Giro"]["pots"] == [] and accounts["Giro"]["unassigned"] is None
+    assert accounts["Giro"]["iban"] is None

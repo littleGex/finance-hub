@@ -4,7 +4,7 @@ from __future__ import annotations
 import math
 from datetime import date, timedelta
 
-from . import config
+from . import config, plan, pots
 
 XP_PER_IMPORT = 20
 XP_PER_PAYSLIP = 30
@@ -63,7 +63,7 @@ def saving_streak(cashflow: dict[str, dict], current: str) -> int:
 
 
 def summary(conn, today: date | None = None) -> dict:
-    today = today or date.today()
+    today = today or plan.today()
     cur = month_key(today)
 
     accounts = []
@@ -75,9 +75,12 @@ def summary(conn, today: date | None = None) -> dict:
         ).fetchone()
         balance = a["opening_balance"] + total["s"]
         net_worth += balance
+        account_pots = pots.account_pots(conn, a["id"], today)
+        unassigned = round(balance - sum(p["balance"] for p in account_pots), 2) if account_pots else None
         accounts.append({
-            "id": a["id"], "name": a["name"], "bank": a["bank"],
+            "id": a["id"], "name": a["name"], "bank": a["bank"], "iban": a["iban"],
             "balance": round(balance, 2), "last_tx": total["last"],
+            "pots": account_pots, "unassigned": unassigned,
         })
 
     cashflow = monthly_cashflow(conn)
@@ -115,4 +118,6 @@ def summary(conn, today: date | None = None) -> dict:
         "rings": rings,
         "streak_months": saving_streak(cashflow, cur),
         "game": level_for(xp),
+        "plan": plan.plan_summary(conn, today, cashflow),
+        "upcoming": plan.upcoming(conn, today),
     }
