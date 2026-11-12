@@ -1,0 +1,13 @@
+Umsatzanzeige;Datei erstellt am: 12.11.2026 12:00
+;
+IBAN;DE99 0000 0000 0000 0000 00
+Kontoname;Extra-Konto
+Bank;ING
+Kunde;Beispiel Person
+Zeitraum;01.10.2026 - 12.11.2026
+Saldo;4.200,00;EUR
+;
+Buchung;Valuta;Auftraggeber/Empfänger;Buchungstext;Kategorie;Verwendungszweck;Saldo;Währung;Betrag;Währung
+05.11.2026;05.11.2026;Sparplan Depot;Dauerauftrag;Sparen;Monatliche Sparrate;4.200,00;EUR;-300,00;EUR
+05.10.2026;05.10.2026;Sparplan Depot;Dauerauftrag;Sparen;Monatliche Sparrate;4.500,00;EUR;-300,00;EUR
+28.10.2026;28.10.2026;Finanzamt Beispiel;Gutschrift;Sonstiges;Erstattung;4.800,00;EUR;212,40;EUR

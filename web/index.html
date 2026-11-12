@@ -1,0 +1,87 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#f2f2f7" media="(prefers-color-scheme: light)">
+<meta name="theme-color" content="#000000" media="(prefers-color-scheme: dark)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Finance Hub">
+<link rel="manifest" href="manifest.json">
+<link rel="apple-touch-icon" href="icon.svg">
+<link rel="icon" href="icon.svg">
+<link rel="stylesheet" href="app.css">
+<title>Finance Hub</title>
+</head>
+<body>
+<canvas id="confetti" aria-hidden="true"></canvas>
+<main>
+  <header class="hero">
+    <p class="eyebrow">Net worth</p>
+    <h1 id="networth" aria-live="polite">€0</h1>
+    <div class="chips">
+      <span class="chip" id="level-chip">Level 1</span>
+      <span class="chip" id="streak-chip">🔥 0-month streak</span>
+    </div>
+    <div class="xpbar" title="XP to next level"><div id="xpfill"></div></div>
+  </header>
+
+  <section class="card rings-card" aria-label="This month">
+    <svg id="rings" viewBox="0 0 200 200" role="img" aria-label="Activity rings"></svg>
+    <ul id="ring-legend" class="legend"></ul>
+  </section>
+
+  <section class="card">
+    <div class="card-head">
+      <h2>Accounts</h2>
+      <button class="link" id="add-account">Add</button>
+    </div>
+    <ul id="accounts" class="rows"></ul>
+    <p class="hint">Drop a CSV export on an account, or tap it to choose a file.</p>
+  </section>
+
+  <section class="card">
+    <h2>Payslips</h2>
+    <label class="drop" id="payslip-drop" tabindex="0">
+      <input type="file" id="payslip-input" accept="application/pdf" hidden>
+      <span class="drop-icon">📄</span>
+      <span>Drop a payslip PDF</span>
+      <small>Filed to your NAS by year</small>
+    </label>
+    <ul id="payslips" class="rows"></ul>
+  </section>
+
+  <section class="card">
+    <h2>Recent activity</h2>
+    <ul id="transactions" class="rows"></ul>
+  </section>
+
+  <footer>FX: 1 GBP = <span id="fx">–</span> EUR (manual rate)</footer>
+</main>
+
+<dialog id="account-dialog">
+  <form method="dialog" id="account-form">
+    <h3>New account</h3>
+    <label>Name <input name="name" required maxlength="60" placeholder="Sparkasse Giro"></label>
+    <label>Bank
+      <select name="bank">
+        <option value="sparkasse">Sparkasse</option>
+        <option value="ing">ING</option>
+        <option value="bos">Bank of Scotland</option>
+        <option value="other">Other</option>
+      </select>
+    </label>
+    <label>Currency
+      <select name="currency"><option>EUR</option><option>GBP</option></select>
+    </label>
+    <div class="actions">
+      <button value="cancel" class="link">Cancel</button>
+      <button value="ok" class="primary">Create</button>
+    </div>
+  </form>
+</dialog>
+
+<div id="toast" role="status" aria-live="polite"></div>
+<script src="app.js"></script>
+</body>
+</html>

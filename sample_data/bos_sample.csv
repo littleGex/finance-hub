@@ -1,0 +1,4 @@
+Transaction Date,Transaction Type,Sort Code,Account Number,Transaction Description,Debit Amount,Credit Amount,Balance
+03/11/2026,DD,'11-22-33,12345678,COUNCIL TAX,95.00,,1805.20
+28/10/2026,FPI,'11-22-33,12345678,INTEREST PAYMENT,,12.45,1900.20
+15/10/2026,DEB,'11-22-33,12345678,TESCO STORES 1234,41.87,,1887.75

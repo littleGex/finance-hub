@@ -1,0 +1,16 @@
+services:
+  finance-hub:
+    build: .
+    container_name: finance-hub
+    restart: unless-stopped
+    ports:
+      - "8092:8092"
+    env_file: .env
+    environment:
+      FINANCE_HUB_DB: /data/finance.db
+      IMPORT_ARCHIVE_DIR: /data/imports
+      PAYSLIP_DIR: /payslips
+    volumes:
+      - ./data:/data
+      # Point the left side at your mounted mycloud NAS share for payslips.
+      - ${NAS_PAYSLIP_PATH:-./data/payslips}:/payslips
