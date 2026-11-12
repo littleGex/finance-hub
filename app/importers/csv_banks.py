@@ -67,7 +67,8 @@ class SparkasseCSV:
                 amount=_de_number(r["Betrag"]),
                 counterparty=(r.get("Beguenstigter/Zahlungspflichtiger") or "").strip(),
                 description=(r.get("Verwendungszweck") or "").strip(),
-                counterparty_iban=normalize_iban(r.get("Kontonummer")) or "",
+                # CSV-CAMT names it "Kontonummer/IBAN", the older MT940 export "Kontonummer".
+                counterparty_iban=normalize_iban(r.get("Kontonummer/IBAN") or r.get("Kontonummer")) or "",
             ))
         return out
 

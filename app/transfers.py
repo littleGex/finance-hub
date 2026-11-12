@@ -39,20 +39,26 @@ def mark_transfers(conn) -> int:
             "WHERE counterparty_iban IS NOT NULL ORDER BY booked_on, id")
         if own.get(r["counterparty_iban"]) not in (None, r["account_id"])
     ]
-    marked = {r["id"] for r in direct}
+    target_of = {r["id"]: own[r["counterparty_iban"]] for r in direct}
+    marked = set(target_of)
+    paired: set[int] = set()   # transactions whose other leg has been found
 
     for r in direct:
-        target = own[r["counterparty_iban"]]
+        if r["id"] in paired:          # already matched as the other leg of an earlier transfer
+            continue
         day = date.fromisoformat(r["booked_on"])
         candidates = [
             c for c in conn.execute(
                 "SELECT id, booked_on FROM transactions WHERE account_id = ? AND amount = ? "
                 "AND julianday(booked_on) BETWEEN julianday(?) - ? AND julianday(?) + ?",
-                (target, -r["amount"], r["booked_on"], PAIR_WINDOW_DAYS, r["booked_on"], PAIR_WINDOW_DAYS))
-            if c["id"] not in marked
+                (target_of[r["id"]], -r["amount"], r["booked_on"], PAIR_WINDOW_DAYS, r["booked_on"], PAIR_WINDOW_DAYS))
+            if c["id"] not in paired
+            # a direct leg can only be this transfer's partner if it points back at our account
+            and target_of.get(c["id"], r["account_id"]) == r["account_id"]
         ]
         if candidates:
             best = min(candidates, key=lambda c: (abs((date.fromisoformat(c["booked_on"]) - day).days), c["id"]))
+            paired.update((r["id"], best["id"]))
             marked.add(best["id"])
 
     conn.executemany("UPDATE transactions SET is_transfer = 1 WHERE id = ?", [(i,) for i in marked])

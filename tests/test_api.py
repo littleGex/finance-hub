@@ -137,3 +137,17 @@ def test_summary_shows_pots_and_unassigned(client, monkeypatch):
     assert accounts["Sparkonto"]["unassigned"] == -200.0
     assert accounts["Giro"]["pots"] == [] and accounts["Giro"]["unassigned"] is None
     assert accounts["Giro"]["iban"] is None
+
+
+def test_reimport_backfills_counterparty_iban_on_existing_rows(client):
+    from app import db
+    giro = make_account(client, "Sparkasse Giro", "sparkasse")
+    data = (SAMPLES / "sparkasse_sample.csv").read_bytes()
+    client.post(f"/api/import/{giro}", files={"file": ("s.csv", data)})
+    with db.session() as conn:                       # rows imported before the upgrade had no IBAN
+        conn.execute("UPDATE transactions SET counterparty_iban = NULL")
+    r = client.post(f"/api/import/{giro}", files={"file": ("s.csv", data)})
+    assert r.json()["rows_new"] == 0                  # still reported as already known
+    with db.session() as conn:
+        n = conn.execute("SELECT COUNT(*) FROM transactions WHERE counterparty_iban = 'DE11111111111111111111'").fetchone()[0]
+    assert n == 2                                     # both salary rows backfilled

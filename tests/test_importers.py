@@ -53,3 +53,8 @@ def test_sparkasse_reads_counterparty_iban():
 def test_sparkasse_old_style_account_number_is_not_an_iban():
     text = read("sparkasse_sample.csv").replace('"DE11111111111111111111"', '"1234567"', 1)
     assert csv_banks.SparkasseCSV().parse(text)[0].counterparty_iban == ""
+
+
+def test_sparkasse_camt_header_kontonummer_iban():
+    text = read("sparkasse_sample.csv").replace('"Kontonummer"', '"Kontonummer/IBAN"', 1)
+    assert csv_banks.SparkasseCSV().parse(text)[0].counterparty_iban == "DE11111111111111111111"

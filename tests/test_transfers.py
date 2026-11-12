@@ -64,3 +64,14 @@ def test_transfers_excluded_from_cashflow(conn):
     tx(conn, a, 9, -80)                # groceries
     mark_transfers(conn)
     assert monthly_cashflow(conn)["2026-11"] == {"income": 3000.0, "spend": 80.0}
+
+
+def test_both_legs_direct_do_not_swallow_same_amount_spend(conn):
+    giro = add_account(conn, "Giro", iban=IA)
+    spar = add_account(conn, "Sparkonto", iban=IB)
+    t1 = tx(conn, giro, 5, -100, IB)       # Giro export names the savings IBAN
+    t2 = tx(conn, spar, 5, 100, IA)        # savings export names the Giro IBAN
+    t3 = tx(conn, giro, 7, -100)           # unrelated ATM withdrawal, same amount
+    mark_transfers(conn)
+    assert marked(conn) == {t1, t2}
+    assert t3 not in marked(conn)

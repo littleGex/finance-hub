@@ -135,6 +135,10 @@ async def import_csv(account_id: int, file: UploadFile = File(...)):
                  t.counterparty_iban or None),
             )
             new += cur.rowcount
+            if not cur.rowcount and t.counterparty_iban:
+                # Already known (e.g. imported before IBANs were stored): fill the IBAN in.
+                conn.execute("UPDATE transactions SET counterparty_iban = ? WHERE dedup_key = ? AND counterparty_iban IS NULL",
+                             (t.counterparty_iban, k))
         transfers.mark_transfers(conn)
         conn.execute(
             "INSERT INTO imports(account_id, filename, rows_total, rows_new) VALUES (?,?,?,?)",
